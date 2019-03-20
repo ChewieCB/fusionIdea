@@ -63,17 +63,49 @@ public class FusionFacetType extends FacetType<FusionFacet, FusionFacetConfigura
     public static FusionFacetType getInstance() {
         return findInstance(FusionFacetType.class);
     }
+    
+    public static class OS {
+        String os_name = System.getProperty("os.name");
+        String startPath = getStartPath();
+        String fusionExec = getFusionExec();
+
+        public String getStartPath() {
+            if (os_name.contains("Windows")) {
+                String startPath = new String("/AppData/Local/Autodesk/webdeploy/production");
+                return startPath;
+            } else if (os_name.contains("Mac")) {
+                String startPath = new String("/Library/Application Support/Autodesk/webdeploy/production");
+                return startPath;
+            } else {
+                throw new IllegalArgumentException("OS not supported!\nOS: " + os_name);
+            }
+        }
+
+        public String getFusionExec() {
+            if (os_name.contains("Windows")) {
+                String fusionExec = ("Fusion360.exe");
+                return fusionExec;
+            } else if (os_name.contains("Mac")) {
+                String fusionExec = ("Autodesk Fusion 360.app");
+                return fusionExec;
+            } else {
+                throw new IllegalArgumentException("OS not supported!\nOS: " + os_name);
+            }
+        }
+    }
 
     public static FusionFacetConfiguration newDefaultConfiguration() {
         VirtualFile homeDir = VfsUtil.getUserHomeDir();
 
-        File startPath = new File(homeDir.getCanonicalPath(), "AppData/Local/Autodesk/webdeploy/production");
+        OS os = new OS();
+
+        File startPath = new File(homeDir.getCanonicalPath(), os.startPath);
 
         File fusionPath = null;
 
         if (startPath.exists()) {
             for (File subdir : startPath.listFiles(File::isDirectory)) {
-                File candidatePath = new File(subdir, "Fusion360.exe");
+                File candidatePath = new File(subdir, os.fusionExec);
                 if (candidatePath.exists()) {
                     fusionPath = candidatePath;
                     break;
