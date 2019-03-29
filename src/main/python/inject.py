@@ -29,6 +29,7 @@ import inspect
 import os
 import sys
 
+
 def process_command_line(argv):
     setup = {
         'port': 5678,
@@ -88,6 +89,39 @@ def main(setup):
     if setup['script'] and setup['debug']:
         setup['detach'] = 1
 
+    if sys.platform == 'darwin':
+        # MacOS
+        python_code = ''
+        if setup['debug']:
+            python_code += '''
+        import sys
+        sys.path.append("\%(helper_path)s")
+        sys.path.append("%(pydevd_path)s")
+        try:
+            import attach_script
+            sys.stderr.flush = lambda: None
+            sys.stdout.flush = lambda: None
+            attach_script.attach(port=%(port)s, host="%(host)s")
+            sys.stdout.value = ""
+            sys.stderr.value = ""
+        finally
+            del sys.path[-1]
+            del sys.path[-1]
+        '''
+        if setup['script']:
+            python_code += '''
+        import adsk.core
+        import json
+        import sys
+        sys.path.append("%(script_path)s")
+        try:
+            import fusion_idea_helper
+        finally:
+            del sys.path[-1]
+        adsk.core.Application.get().fireCustomEvent(
+            "fusion_idea_run_script", json.dumps({"script": "%(script)s", "detach": %(detach)d}))
+        '''
+
     if sys.platform == 'win32':
         python_code = ''
         setup['script_path'] = setup['script_path'].replace('\\', '/')
@@ -98,7 +132,7 @@ def main(setup):
             # Fusion 360 appears to be using a copypasta stdout/stderr redirection based on this stackoverflow answer:
             # https://stackoverflow.com/a/4307737/531021
             # This is problematic because pydev expects there to be a flush method. pydev also adds its own
-            # replacements, which don't have the "value" attribute from the CatchOutErr class that fusion expects.
+            # replacements, which don't have the "dvalue" attribute from the CatchOutErr class that fusion expects.
             # So we add a noop flush method, and an empty value attribute, and everyone is happy.
             python_code += '''
 import sys
@@ -167,7 +201,6 @@ adsk.core.Application.get().fireCustomEvent(
     add_code_to_python_process.run_python_code(
         setup['pid'], python_code, connect_debugger_tracing=setup['debug'],
         show_debug_info=show_debug_info_on_target_process)
-
 
 if __name__ == '__main__':
     main(process_command_line(sys.argv[1:]))
